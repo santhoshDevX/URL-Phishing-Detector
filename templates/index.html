@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishGuard — URL Phishing Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #070b12;
+      --surface:    #0d1520;
+      --surface2:   #111d2e;
+      --border:     #1a2d47;
+      --accent:     #00d4ff;
+      --accent2:    #0087cc;
+      --danger:     #ff3c5f;
+      --danger-dim: #3d0f1a;
+      --safe:       #00e5a0;
+      --safe-dim:   #00271a;
+      --warn:       #ffb340;
+      --text:       #cde4ff;
+      --text-dim:   #5a7899;
+      --mono:       'Share Tech Mono', monospace;
+      --sans:       'Sora', sans-serif;
+      --glow:       0 0 20px rgba(0,212,255,.25);
+      --glow-danger:0 0 20px rgba(255,60,95,.35);
+      --glow-safe:  0 0 20px rgba(0,229,160,.3);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 1rem 4rem;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ──────────────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    header {
+      width: 100%;
+      max-width: 760px;
+      text-align: center;
+      padding: 3.5rem 0 2.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      font-family: var(--mono);
+      font-size: .75rem;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      padding: .35rem .9rem;
+      border-radius: 2rem;
+      margin-bottom: 1.6rem;
+      background: rgba(0,212,255,.05);
+    }
+
+    .logo-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      color: #fff;
+    }
+
+    h1 span {
+      color: var(--accent);
+      position: relative;
+    }
+
+    h1 span::after {
+      content: '';
+      position: absolute;
+      bottom: 2px; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      opacity: .4;
+      border-radius: 2px;
+    }
+
+    .subtitle {
+      margin-top: .9rem;
+      font-size: .95rem;
+      font-weight: 300;
+      color: var(--text-dim);
+      letter-spacing: .01em;
+    }
+
+    /* ── Main card ───────────────────────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 760px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem 2.5rem 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(0,212,255,.15), transparent 60%);
+      pointer-events: none;
+    }
+
+    /* ── Input group ─────────────────────────────────────────────────────── */
+    .input-label {
+      font-family: var(--mono);
+      font-size: .7rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: .6rem;
+      display: block;
+    }
+
+    .input-row {
+      display: flex;
+      gap: .75rem;
+      align-items: stretch;
+    }
+
+    #urlInput {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .9rem 1.2rem;
+      font-family: var(--mono);
+      font-size: .9rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    #urlInput::placeholder { color: var(--text-dim); }
+
+    #urlInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,.12);
+    }
+
+    #scanBtn {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 10px;
+      padding: .9rem 1.8rem;
+      font-family: var(--sans);
+      font-size: .88rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .2s, transform .12s, box-shadow .2s;
+    }
+
+    #scanBtn:hover  { background: #25dcff; box-shadow: var(--glow); }
+    #scanBtn:active { transform: scale(.97); }
+    #scanBtn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    /* Scanning animation */
+    #scanBtn.scanning::after {
+      content: '';
+      display: inline-block;
+      width: .8em; height: .8em;
+      border: 2px solid var(--bg);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin-left: .5rem;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Quick test chips ────────────────────────────────────────────────── */
+    .quick-tests {
+      margin-top: 1.2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+    }
+
+    .quick-label {
+      font-family: var(--mono);
+      font-size: .65rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: .72rem;
+      padding: .28rem .75rem;
+      border-radius: 2rem;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-dim);
+      transition: all .15s;
+    }
+
+    .chip:hover              { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,.06); }
+    .chip.chip-phish:hover   { border-color: var(--danger); color: var(--danger); background: rgba(255,60,95,.06); }
+
+    /* ── Result panel ────────────────────────────────────────────────────── */
+    #resultPanel {
+      margin-top: 1.8rem;
+      display: none;
+      animation: slideIn .35s cubic-bezier(.25,.8,.25,1);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      padding: 1.4rem 1.6rem;
+      border-radius: 12px;
+      border: 1px solid;
+    }
+
+    .result-header.safe {
+      background: var(--safe-dim);
+      border-color: var(--safe);
+      box-shadow: var(--glow-safe);
+    }
+
+    .result-header.phish {
+      background: var(--danger-dim);
+      border-color: var(--danger);
+      box-shadow: var(--glow-danger);
+    }
+
+    .result-icon {
+      font-size: 2.4rem;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .result-verdict {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .result-header.safe  .result-verdict { color: var(--safe); }
+    .result-header.phish .result-verdict { color: var(--danger); }
+
+    .result-url-display {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--text-dim);
+      margin-top: .2rem;
+      word-break: break-all;
+      max-width: 520px;
+    }
+
+    /* ── Confidence bar ───────────────────────────────────────────────────── */
+    .conf-section { margin-top: 1.2rem; }
+
+    .conf-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: .4rem;
+    }
+
+    .conf-label {
+      font-family: var(--mono);
+      font-size: .65rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .conf-value {
+      font-family: var(--mono);
+      font-size: .85rem;
+      font-weight: 600;
+    }
+
+    .conf-bar-track {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .conf-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .6s cubic-bezier(.25,.8,.25,1);
+      width: 0%;
+    }
+
+    .conf-bar-fill.safe  { background: linear-gradient(90deg, #00b87a, var(--safe)); }
+    .conf-bar-fill.phish { background: linear-gradient(90deg, #cc1f40, var(--danger)); }
+
+    /* ── Feature grid ────────────────────────────────────────────────────── */
+    .features-toggle {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-top: 1.4rem;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: .68rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      user-select: none;
+      width: fit-content;
+    }
+
+    .features-toggle:hover { color: var(--accent); }
+
+    .features-toggle .arrow {
+      transition: transform .2s;
+      display: inline-block;
+    }
+
+    .features-toggle.open .arrow { transform: rotate(90deg); }
+
+    #featureGrid {
+      display: none;
+      margin-top: .8rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .5rem;
+    }
+
+    .feat-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .55rem .9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .feat-name {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--text-dim);
+      letter-spacing: .04em;
+    }
+
+    .feat-val {
+      font-family: var(--mono);
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .feat-val.flag-on  { color: var(--danger); }
+    .feat-val.flag-off { color: var(--text-dim); }
+
+    /* ── Error toast ─────────────────────────────────────────────────────── */
+    #errorMsg {
+      display: none;
+      margin-top: 1rem;
+      padding: .75rem 1.2rem;
+      background: rgba(255,60,95,.1);
+      border: 1px solid rgba(255,60,95,.35);
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: .78rem;
+      color: var(--danger);
+    }
+
+    /* ── Model-not-ready warning ─────────────────────────────────────────── */
+    .model-warning {
+      width: 100%;
+      max-width: 760px;
+      background: rgba(255,179,64,.06);
+      border: 1px solid rgba(255,179,64,.3);
+      border-radius: 10px;
+      padding: .8rem 1.2rem;
+      font-family: var(--mono);
+      font-size: .76rem;
+      color: var(--warn);
+      margin-top: .75rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── How it works ────────────────────────────────────────────────────── */
+    .how-section {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 2.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-title {
+      font-family: var(--mono);
+      font-size: .68rem;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .75rem;
+    }
+
+    .how-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+
+    .how-num {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--accent);
+      letter-spacing: .1em;
+      margin-bottom: .4rem;
+    }
+
+    .how-title {
+      font-size: .84rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: .25rem;
+    }
+
+    .how-desc {
+      font-size: .75rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    footer {
+      margin-top: 3rem;
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+      text-align: center;
+      z-index: 1;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 520px) {
+      .card { padding: 1.5rem 1.2rem; }
+      .input-row { flex-direction: column; }
+      #scanBtn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-badge">PhishGuard v1.0 — Threat Analysis</div>
+    <h1>URL <span>Phishing</span> Detector</h1>
+    <p class="subtitle">Machine-learning powered analysis to detect malicious &amp; phishing URLs in real time</p>
+  </header>
+
+  <!-- Model warning (shown by Flask if model isn't trained) -->
+  {% if not model_ready %}
+  <div class="model-warning">
+    ⚠ Model not loaded. Run  <strong>python train_model.py</strong>  first, then restart the server.
+  </div>
+  {% endif %}
+
+  <!-- Main card -->
+  <div class="card">
+    <label class="input-label" for="urlInput">Enter URL to analyse</label>
+    <div class="input-row">
+      <input
+        id="urlInput"
+        type="text"
+        placeholder="https://example.com/path?query=value"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="scanBtn" onclick="runScan()">Scan URL</button>
+    </div>
+
+    <!-- Quick-test chips -->
+    <div class="quick-tests">
+      <span class="quick-label">Quick test:</span>
+      <button class="chip" onclick="fillURL('https://www.google.com')">google.com</button>
+      <button class="chip" onclick="fillURL('https://github.com/openai/gpt-4')">github.com</button>
+      <button class="chip chip-phish" onclick="fillURL('http://paypal-login-secure.xyz/verify?account=1234')">paypal-phish</button>
+      <button class="chip chip-phish" onclick="fillURL('http://192.168.1.1/admin/login.php')">ip-login</button>
+      <button class="chip chip-phish" onclick="fillURL('http://apple-id-suspended.gq/unlock?id=user@email.com')">apple-phish</button>
+    </div>
+
+    <!-- Error message -->
+    <div id="errorMsg"></div>
+
+    <!-- Result panel -->
+    <div id="resultPanel">
+
+      <div id="resultHeader" class="result-header">
+        <div id="resultIcon" class="result-icon"></div>
+        <div>
+          <div id="resultVerdict" class="result-verdict"></div>
+          <div id="resultURL" class="result-url-display"></div>
+        </div>
+      </div>
+
+      <!-- Confidence bar -->
+      <div class="conf-section">
+        <div class="conf-row">
+          <span class="conf-label" id="confLabel">Confidence</span>
+          <span class="conf-value" id="confValue"></span>
+        </div>
+        <div class="conf-bar-track">
+          <div class="conf-bar-fill" id="confBar"></div>
+        </div>
+      </div>
+
+      <!-- Feature breakdown -->
+      <div class="features-toggle" id="featToggle" onclick="toggleFeatures()">
+        <span class="arrow">▶</span>
+        View extracted features
+      </div>
+      <div id="featureGrid"></div>
+
+    </div><!-- /resultPanel -->
+  </div><!-- /card -->
+
+  <!-- How it works -->
+  <div class="how-section">
+    <p class="section-title">How it works</p>
+    <div class="how-grid">
+      <div class="how-item">
+        <div class="how-num">01</div>
+        <div class="how-title">URL Parsing</div>
+        <div class="how-desc">Python splits the URL into scheme, hostname, path, and query components.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num">02</div>
+        <div class="how-title">Feature Extraction</div>
+        <div class="how-desc">15 signals extracted: IP detection, subdomain depth, suspicious keywords, HTTPS, and more.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num">03</div>
+        <div class="how-title">ML Classification</div>
+        <div class="how-desc">Random Forest / Gradient Boosting model predicts probability of phishing.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num">04</div>
+        <div class="how-title">Risk Score</div>
+        <div class="how-desc">Confidence percentage and risk level (Low / Medium / High) returned instantly.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>PhishGuard · Built with Python, Flask, Scikit-learn · For educational use</footer>
+
+  <script>
+    /* ── Helpers ──────────────────────────────────────────────────────────── */
+    function fillURL(url) {
+      document.getElementById('urlInput').value = url;
+      document.getElementById('urlInput').focus();
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = '⚠ ' + msg;
+      el.style.display = 'block';
+    }
+
+    function clearError() {
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    function toggleFeatures() {
+      const grid   = document.getElementById('featureGrid');
+      const toggle = document.getElementById('featToggle');
+      const open   = toggle.classList.toggle('open');
+      grid.style.display = open ? 'grid' : 'none';
+    }
+
+    /* ── Main scan function ───────────────────────────────────────────────── */
+    async function runScan() {
+      const urlInput = document.getElementById('urlInput');
+      const btn      = document.getElementById('scanBtn');
+      const url      = urlInput.value.trim();
+
+      if (!url) { showError('Please enter a URL.'); return; }
+      clearError();
+
+      // UI: loading state
+      btn.disabled = true;
+      btn.textContent = 'Scanning';
+      btn.classList.add('scanning');
+      document.getElementById('resultPanel').style.display = 'none';
+
+      try {
+        const res  = await fetch('/predict', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ url }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(data.error || 'Server error. Check that the model is trained.');
+          return;
+        }
+
+        renderResult(data);
+
+      } catch (err) {
+        showError('Network error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Scan URL';
+        btn.classList.remove('scanning');
+      }
+    }
+
+    /* ── Render prediction result ─────────────────────────────────────────── */
+    function renderResult(data) {
+      const panel   = document.getElementById('resultPanel');
+      const header  = document.getElementById('resultHeader');
+      const icon    = document.getElementById('resultIcon');
+      const verdict = document.getElementById('resultVerdict');
+      const urlDisp = document.getElementById('resultURL');
+      const confVal = document.getElementById('confValue');
+      const confBar = document.getElementById('confBar');
+      const confLbl = document.getElementById('confLabel');
+      const featGrid= document.getElementById('featureGrid');
+
+      const isPhish = data.is_phishing;
+
+      // Header
+      header.className = 'result-header ' + (isPhish ? 'phish' : 'safe');
+      icon.textContent  = isPhish ? '🚨' : '✅';
+      verdict.textContent = isPhish
+        ? `⚠ PHISHING DETECTED  (${data.risk_level} Risk)`
+        : `✔ LEGITIMATE  (${data.risk_level} Risk)`;
+      urlDisp.textContent = data.url.length > 80
+        ? data.url.slice(0, 77) + '...'
+        : data.url;
+
+      // Confidence bar
+      confLbl.textContent = isPhish ? 'Phishing confidence' : 'Legitimacy confidence';
+      confVal.textContent = data.confidence + '%';
+      confBar.className   = 'conf-bar-fill ' + (isPhish ? 'phish' : 'safe');
+      // Animate after reflow
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          confBar.style.width = data.confidence + '%';
+        });
+      });
+
+      // Feature grid
+      featGrid.innerHTML = '';
+      const flagFeatures = new Set(['has_at_symbol','has_double_slash','has_dash_in_domain','has_ip_address','https_flag','has_port']);
+      for (const [key, val] of Object.entries(data.features)) {
+        const item = document.createElement('div');
+        item.className = 'feat-item';
+        let valClass = 'feat-val';
+        if (flagFeatures.has(key)) {
+          if (key === 'https_flag') {
+            valClass += val === 1 ? ' flag-off' : ' flag-on'; // https=good, no-https=bad
+          } else {
+            valClass += val === 1 ? ' flag-on' : ' flag-off';
+          }
+        }
+        item.innerHTML = `
+          <span class="feat-name">${key.replace(/_/g,' ')}</span>
+          <span class="${valClass}">${val}</span>
+        `;
+        featGrid.appendChild(item);
+      }
+      // Keep feature section hidden on new result
+      featGrid.style.display = 'none';
+      document.getElementById('featToggle').classList.remove('open');
+
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /* ── Enter key shortcut ───────────────────────────────────────────────── */
+    document.getElementById('urlInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') runScan();
+    });
+  </script>
+</body>
+</html>
